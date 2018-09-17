@@ -10,7 +10,7 @@ func main() {
 	http_port := os.Getenv("HTTP_PORT")
 	http_root := os.Getenv("HTTP_ROOT")
 	if len(http_root) == 0 {
-		http_root = "../../frontend"
+		http_root = "../frontend"
 	}
 	if len(http_port) == 0 {
 		http_port = "8080"
