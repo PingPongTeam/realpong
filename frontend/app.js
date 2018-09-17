@@ -4,7 +4,7 @@ var gameCreator;
 window.onload = () => {
   connectionStatus = new ConnectionStatus();
   messageHandler = new MessageHandler();
-  const createGame = document.getElementById("createGame");
+  const createGameButton = document.getElementById("createGame");
 
   const socket = new WebSocket("ws://localhost");
 
@@ -19,6 +19,13 @@ window.onload = () => {
     connectionStatus.update({ message: "Connection error", status: "danger" });
     console.warn(error);
   };
+  socket.onmessage = event => {
+    messageHandler.print(event.data);
+  };
+
+  createGameButton.addEventListener("click", () => {
+    socket.send("gifv match plz!");
+  });
 };
 
 class ConnectionStatus {
@@ -50,6 +57,10 @@ class MessageHandler {
   constructor() {
     this.messageBox = document.getElementById("messages");
     this.print("awaiting further instructions from backend");
+  }
+
+  interpret(message) {
+    // wat?
   }
 
   print(message) {
