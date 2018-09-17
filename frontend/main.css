@@ -1,9 +1,36 @@
+body {
+  font-family: "Open Sans", "helvetica neue", helvetica, arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: normal;
+}
 #gameSetup {
+  z-index: 1;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100%;
+}
+#takeOver {
+  z-index: 2;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: none;
+  color: white;
+  justify-content: center;
+  align-items: center;
+  font-size: 48px;
 }
 #connectionStatus {
   border-radius: 2px;

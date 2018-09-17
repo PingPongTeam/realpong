@@ -1,9 +1,4 @@
-var connectionStatus;
-var messageHandler;
-var gameCreator;
 window.onload = () => {
-  connectionStatus = new ConnectionStatus();
-  messageHandler = new MessageHandler();
   const createGameButton = document.getElementById("createGame");
 
   const socket = new WebSocket("ws://localhost");
@@ -52,6 +47,25 @@ class ConnectionStatus {
     }
   }
 }
+const connectionStatus = new ConnectionStatus();
+
+class TakeOver {
+  constructor() {
+    this.takeOver = document.createElement("div");
+    this.takeOver.id = "takeOver";
+    document.body.appendChild(this.takeOver);
+  }
+
+  show(message) {
+    this.takeOver.textContent = message;
+    this.takeOver.style.display = "flex";
+  }
+
+  hide() {
+    this.takeOver.style.display = "none";
+  }
+}
+const takeOver = new TakeOver();
 
 class MessageHandler {
   constructor() {
@@ -69,3 +83,16 @@ class MessageHandler {
     this.messageBox.appendChild(li);
   }
 }
+const messageHandler = new MessageHandler();
+
+class Canvas {
+  constructor() {
+    this.canvas = document.getElementById("canvas");
+    if (!this.canvas.getContext) {
+      takeOver.show(
+        "Your browser must be very old?! I can't darw things with technology this old :("
+      );
+    }
+  }
+}
+const canvas = new Canvas();
