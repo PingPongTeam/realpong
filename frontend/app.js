@@ -88,11 +88,37 @@ const messageHandler = new MessageHandler();
 class Canvas {
   constructor() {
     this.canvas = document.getElementById("canvas");
-    if (!this.canvas.getContext) {
+    if (this.canvas.getContext) {
+      this.canvas.height = document.body.getBoundingClientRect().height;
+      this.canvas.width = document.body.getBoundingClientRect().width;
+      this.ctx = this.canvas.getContext("2d");
+    } else {
       takeOver.show(
         "Your browser must be very old?! I can't darw things with technology this old :("
       );
     }
+    const ctx = this.ctx;
+    ctx.fillStyle = "rgb(200,0,0)";
+    ctx.fillRect(30, 30, 50, 50);
+
+    ctx.beginPath();
+    ctx.moveTo(100, 100);
+    ctx.lineTo(100, 150);
+    ctx.lineTo(80, 200);
+    ctx.lineTo(20, 250);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(200, 200, 40, 0, Math.PI / 2, false);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(300, 300);
+    ctx.bezierCurveTo(300, 250, 400, 250, 400, 300);
+    ctx.stroke();
+
+    var p = new Path2D("M10 10 h 80 v 80 h -80 Z");
+    ctx.stroke(p);
   }
 }
 const canvas = new Canvas();
