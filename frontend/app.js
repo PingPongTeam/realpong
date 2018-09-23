@@ -1,7 +1,7 @@
 window.onload = () => {
   const createGameButton = document.getElementById("createGame");
 
-  const socket = new WebSocket("ws://" + window.location.host + "/ws");
+  const socket = new WebSocket("ws://" + window.location.hostname + ":8081");
 
   socket.onopen = e => {
     connectionStatus.update({

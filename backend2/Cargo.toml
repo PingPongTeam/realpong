@@ -1,0 +1,12 @@
+[package]
+name = "backend"
+version = "0.1.0"
+authors = ["Olle Sandberg <olle@b3rg.se>"]
+
+[dependencies]
+rocket = "*"
+rocket_codegen = "*"
+websocket = "*"
+futures = "*"
+tokio-core = "*"
+
