@@ -19,7 +19,7 @@ window.onload = () => {
   };
 
   createGameButton.addEventListener("click", () => {
-    socket.send(JSON.stringify({"id": "1", "msgType":{"cmd": "createMatch"}}));
+    socket.send(JSON.stringify({ id: "1", cmd: "createGame" }));
   });
 };
 
