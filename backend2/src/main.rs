@@ -8,6 +8,7 @@ extern crate uuid;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate bytes;
 extern crate futures;
 extern crate rocket;
 extern crate tokio_core;
@@ -17,6 +18,7 @@ extern crate websocket;
 mod fs_server;
 mod proto;
 
+use futures::sync::mpsc;
 use futures::{Future, Sink, Stream};
 use tokio_core::reactor::{Core, Handle};
 
@@ -39,16 +41,12 @@ use websocket::server::InvalidConnection;
 
 use std::collections::HashMap;
 
-struct PlayerConnection {
-    game: Option<Rc<RefCell<Game>>>,
-}
-
 struct Game {
     id: String,
     p1_id: String,
     p2_id: String,
-//    p1_send_cb: Option<Box<Fn<msg: proto::CmdMsg>>>,
-//    p2_send_cb: Option<Box<Fn(msg: proto::CmdMsg)>>,
+    //    p1_send_cb: Option<Box<Fn<msg: proto::CmdMsg>>>,
+    //    p2_send_cb: Option<Box<Fn(msg: proto::CmdMsg)>>,
 }
 
 // HashMap<String, Rc<RefCell<Match>>>,
@@ -58,8 +56,35 @@ struct ServerState {
     games: HashMap<String, Rc<RefCell<Game>>>,
 }
 
-struct Player {
-    game: Option<Rc<RefCell<Game>>>,
+struct PlayerConnection {
+    id: Option<String>,
+    sink: mpsc::UnboundedSender<OwnedMessage>,
+}
+
+impl PlayerConnection {
+    fn new(sink: mpsc::UnboundedSender<OwnedMessage>) -> Self {
+        PlayerConnection {
+            id: None,
+            sink: sink,
+        }
+    }
+
+    fn process_msg(&mut self, msg: proto::CmdMsg) -> proto::ReplyMsg {
+        println!("Cmd: {:?}", msg);
+
+        let reply = match msg.cmd {
+            proto::Cmd::CreateGame => {
+                // Create a new game
+                proto::Reply::Ok
+            }
+            proto::Cmd::JoinGame(game_id) => proto::Reply::Ok,
+        };
+
+        proto::ReplyMsg {
+            id: msg.id,
+            reply: reply,
+        }
+    }
 }
 
 impl ServerState {
@@ -92,46 +117,9 @@ impl ServerState {
     }
 }
 
-// Process a player message
-fn process_msg(
-    player_connection: &mut PlayerConnection,
-    server_state: &mut ServerState,
-    msg: proto::CmdMsg,
-) -> std::option::Option<websocket::OwnedMessage> {
-    println!("Cmd: {:?}", msg);
-
-    let reply = match msg.cmd {
-        proto::Cmd::CreateGame => {
-            // Create a new game
-            let game = server_state.create_game();
-            let game_desc;
-            {
-                let game = game.borrow();
-                game_desc = proto::GameDesc {
-                    p1_id: game.p1_id.clone(),
-                    p2_id: game.p2_id.clone(),
-                };
-            }
-            player_connection.game = Some(game);
-            proto::Reply::Game(game_desc)
-        }
-        proto::Cmd::JoinGame(game_id) => {
-            println!("Join game {}!", game_id);
-
-            proto::Reply::Ok
-        }
-    };
-
-    let reply_msg = proto::ReplyMsg {
-        id: msg.id,
-        reply: reply,
-    };
-
-    let j = serde_json::to_string(&reply_msg).unwrap();
-    println!("Reply: {}", j);
-    Some(websocket::OwnedMessage::Text(j))
-}
-
+//use std::error::Error;
+use bytes::BytesMut;
+use std::io::{Error, ErrorKind};
 use std::time::{Duration, Instant};
 
 fn ws_server() {
@@ -177,39 +165,47 @@ fn ws_server() {
 
             let server_state = server_state.clone();
 
-            let mut player_connection = PlayerConnection { game: None };
-
             // accept the request to be a ws connection if it does
-            let f = upgrade
-                .accept()
-                // send a greeting!
-                .and_then(|(s, _)| {
-                    s.send(Message::text("Givf player game id or create match!").into())
-                })
-                .and_then(move |s| {
-                    let (sink, stream) = s.split();
-                    stream
-                        .take_while(|m| Ok(!m.is_close()))
-                        .filter_map(move |m| {
-                            //server_state.borrow_mut().create_game();
-                            println!("Message from Client: {:?}", m);
-                            match m {
-                                OwnedMessage::Ping(p) => Some(OwnedMessage::Pong(p)),
-                                OwnedMessage::Pong(_) => None,
-                                OwnedMessage::Text(text) => {
-                                    let msg: proto::CmdMsg = serde_json::from_str(&text).unwrap();
-                                    process_msg(
-                                        &mut player_connection,
-                                        &mut server_state.borrow_mut(),
-                                        msg,
-                                    )
-                                }
-                                _ => Some(m),
+            let f = upgrade.accept().and_then(move |(s, _)| {
+                let (sink, stream) = s.split();
+
+                // Create a multi producer single consumer channel for this web socket.
+                // So that messages can be sent
+                let (unbounded_sink, unbounded_stream) = mpsc::unbounded::<OwnedMessage>();
+
+                let sender = sink.send_all(
+                    unbounded_stream
+                        .map_err(|_err| Error::new(ErrorKind::Other, "Some stream error")),
+                );
+                spawn_future(sender, "Bla", &handle);
+
+                let mut player_connection = PlayerConnection::new(unbounded_sink);
+                let inner_sink = unbounded_sink.clone();
+                stream
+                    .take_while(|m| Ok(!m.is_close()))
+                    .filter_map(move |m| {
+                        //server_state.borrow_mut().create_game();
+                        println!("Message from Client: {:?}", m);
+                        match m {
+                            OwnedMessage::Ping(p) => Some(OwnedMessage::Pong(p)),
+                            OwnedMessage::Pong(_) => None,
+                            OwnedMessage::Text(text) => {
+                                println!("Cmd: {}", text);
+                                let msg: proto::CmdMsg = serde_json::from_str(&text).unwrap();
+                                let reply = player_connection.process_msg(msg);
+                                let j = serde_json::to_string(&reply).unwrap();
+                                println!("Reply: {}", j);
+                                Some(OwnedMessage::Text(j))
                             }
-                        })
-                        .forward(sink)
-                        .and_then(|(_, sink)| sink.send(OwnedMessage::Close(None)))
-                });
+                            _ => Some(m),
+                        }
+                    })
+                    .forward(
+                        inner_sink
+                            .map_err(|_err| Error::new(ErrorKind::Other, "Another stream error")),
+                    )
+                    .and_then(|(_, inner_sink)| inner_sink.send(OwnedMessage::Close(None)))
+            });
 
             spawn_future(f, "Client Status", &handle);
             Ok(())
